@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="th"><head><meta charset="utf-8"><title>Monster Quest ล่าคำใบ้</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--pn:rgba(20,24,50,.78);--tx:#fff;--ac:#ffd54a;color-scheme:dark}
+*{box-sizing:border-box;-webkit-user-select:none;user-select:none;touch-action:none}
+html,body{margin:0;height:100%;overflow:hidden;background:#7ec8ff;font-family:Kanit,"Noto Sans Thai",sans-serif;color:var(--tx)}
+canvas{display:block;position:fixed;inset:0}
+.pn{background:var(--pn);border-radius:16px;padding:10px 14px;backdrop-filter:blur(6px)}
+#hud{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);left:8px;right:8px;display:flex;justify-content:space-between;gap:8px;pointer-events:none}
+#nb{max-width:46vw;font-size:14px}#nb b{color:var(--ac)}
+#words{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.w{background:#fff;color:#223;border-radius:20px;padding:2px 10px;font-size:14px}
+#top{text-align:right;font-size:14px}#top b{font-size:18px;color:var(--ac)}
+#msg{position:fixed;top:30%;left:50%;transform:translate(-50%,-50%);font-size:34px;font-weight:700;text-shadow:0 3px 10px #000;text-align:center;pointer-events:none;opacity:0;transition:opacity .3s;max-width:90vw}
+#atk{position:fixed;right:22px;bottom:calc(env(safe-area-inset-bottom,0px) + 28px);width:96px;height:96px;border-radius:50%;border:4px solid #fff;background:radial-gradient(#ff7a59,#d62f3f);font:700 20px Kanit;color:#fff;box-shadow:0 6px 18px #0006}
+#joy{position:fixed;left:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);width:130px;height:130px;border-radius:50%;background:#fff3;border:3px solid #fff8}
+#knob{position:absolute;left:40px;top:40px;width:50px;height:50px;border-radius:50%;background:#fffd}
+#vote{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 160px);transform:translateX(-50%);width:min(560px,94vw);text-align:center;display:none}
+#vote h3{margin:0 0 6px}.opts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.opt{font:700 20px Kanit;padding:12px;border-radius:14px;border:3px solid #fff;background:#3b5bdb;color:#fff}
+.opt.sel{background:#2f9e44;border-color:var(--ac)}
+#start{position:fixed;inset:0;background:linear-gradient(#5b7cfa,#9b5de5);display:flex;align-items:center;justify-content:center;z-index:9;text-align:center}
+#start .pn{background:#0006;padding:26px;width:min(440px,92vw)}
+#start h1{margin:0 0 6px;font-size:34px}#start input{font:500 20px Kanit;padding:10px;border-radius:12px;border:0;width:100%;text-align:center;margin:12px 0;-webkit-user-select:text;user-select:text}
+#go{font:700 22px Kanit;padding:12px 34px;border-radius:30px;border:0;background:var(--ac);color:#331}
+small{opacity:.85}
+</style></head><body>
+<div id="start"><div class="pn"><h1>⚔️ Monster Quest</h1><div>เดินสู้มอนสเตอร์ เก็บคำใบ้ แล้วช่วยกันทายว่าคืออะไร!</div>
+<input id="nm" maxlength="12" placeholder="ชื่อของหนู"><button id="go">เริ่มเล่น</button>
+<p><small>เดิน: WASD / ลูกศร / จอยสติ๊ก · โจมตี: Space หรือปุ่มแดง</small></p></div></div>
+<div id="hud"><div id="nb" class="pn"><b>📒 สมุดคำใบ้</b> <small>(มีคำหลอกปนอยู่!)</small><div id="words"></div></div>
+<div id="top" class="pn">ด่าน <b id="lv">1</b><br>👥 <span id="pc">1</span> คน</div></div>
+<div id="msg"></div>
+<div id="vote" class="pn"><h3 id="vt"></h3><div id="vh" class="words"></div><div class="opts" id="opts"></div></div>
+<div id="joy"><div id="knob"></div></div><button id="atk">โจมตี</button>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const P=[
+{a:'ช้าง',o:['ยีราฟ','ช้าง','ม้าลาย','ฮิปโป'],t:['งวงยาว','งาขาว','ตัวใหญ่มาก','หูกว้าง'],d:['มีปีก','ว่ายน้ำเก่ง','ร้องเหมียว','ตัวเล็กนิดเดียว','มีเกล็ด']},
+{a:'ปลา',o:['กบ','ปลา','เต่า','นก'],t:['มีเกล็ด','อยู่ในน้ำ','มีครีบ','หายใจด้วยเหงือก'],d:['มีขนปุย','บินได้','มีสี่ขา','ขัดหอม','ร้องเจี๊ยบ']},
+{a:'ดวงอาทิตย์',o:['ดวงจันทร์','ดวงอาทิตย์','ดาวตก','ดาวศุกร์'],t:['ร้อนมาก','ให้แสงสว่าง','ขึ้นตอนเช้า','อยู่บนฟ้า'],d:['เย็นเฉียบ','มีสีฟ้า','ส่องตอนกลางคืน','มีปลาอยู่ข้างใน','ตกลงมา']}];
+const hs=s=>[...s].reduce((a,c)=>a*31+c.charCodeAt(0)|0,7);
+const R=(a,b)=>a+Math.random()*(b-a), shuf=a=>a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(v=>v[1]);
+// ---- three
+const rn=new THREE.WebGLRenderer({antialias:true});rn.setPixelRatio(Math.min(devicePixelRatio,2));rn.setSize(innerWidth,innerHeight);rn.shadowMap.enabled=true;document.body.prepend(rn.domElement);
+const sc=new THREE.Scene();sc.background=new THREE.Color(0x8fd3ff);sc.fog=new THREE.Fog(0x8fd3ff,35,95);
+const cam=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.1,200);
+addEventListener('resize',()=>{rn.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()});
+sc.add(new THREE.HemisphereLight(0xffffff,0x4a8f4a,.85));
+const sun=new THREE.DirectionalLight(0xfff2cc,.9);sun.position.set(20,35,15);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);
+Object.assign(sun.shadow.camera,{left:-30,right:30,top:30,bottom:-30,near:1,far:90});sc.add(sun,sun.target);
+const M=(c,o={})=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.7},o));
+const mesh=(g,m,x=0,y=0,z=0,sh=true)=>{const o=new THREE.Mesh(g,m);o.position.set(x,y,z);o.castShadow=sh;o.receiveShadow=true;return o};
+const sea=mesh(new THREE.PlaneGeometry(400,400),M(0x2b8cff,{roughness:.2}),0,-.6,0,false);sea.rotation.x=-Math.PI/2;sc.add(sea);
+const isl=mesh(new THREE.CylinderGeometry(46,49,2,48),M(0x58b947),0,-1,0,false);sc.add(isl);
+sc.add(mesh(new THREE.TorusGeometry(46.5,1.2,8,48),M(0xf2d99b),0,-.1,0,false)).children.at(-1).rotation.x=Math.PI/2;
+for(let i=0;i<60;i++){const a=R(0,6.28),r=R(10,42),x=Math.cos(a)*r,z=Math.sin(a)*r,t=new THREE.Group(),h=R(2,4);
+ t.add(mesh(new THREE.CylinderGeometry(.35,.5,h,6),M(0x8b5a2b),0,h/2,0));
+ [0,1.2,2.1].forEach((y,k)=>t.add(mesh(new THREE.ConeGeometry(2-k*.5,2.4-k*.3,7),M(i%3?0x2e8b3a:0x3fae4f),0,h+y-.3,0)));t.position.set(x,0,z);sc.add(t)}
+for(let i=0;i<45;i++){const a=R(0,6.28),r=R(6,43);sc.add(mesh(new THREE.SphereGeometry(R(.15,.3),6,6),M([0xff5d8f,0xffd23f,0xffffff,0xc77dff][i%4]),Math.cos(a)*r,.25,Math.sin(a)*r,false))}
+for(let i=0;i<10;i++){const a=R(0,6.28),r=R(12,40);sc.add(mesh(new THREE.DodecahedronGeometry(R(.6,1.4)),M(0x8d99ae),Math.cos(a)*r,.3,Math.sin(a)*r))}
+const clouds=[];for(let i=0;i<9;i++){const c=new THREE.Group();for(let k=0;k<4;k++)c.add(mesh(new THREE.SphereGeometry(R(3,5),10,8),M(0xffffff,{roughness:1}),k*3.5,R(-.5,.8),R(-1,1),false));c.position.set(R(-80,80),R(24,34),R(-80,80));sc.add(c);clouds.push(c)}
+// pad
+const pad=new THREE.Group();pad.add(mesh(new THREE.CylinderGeometry(3.6,3.9,.5,32),M(0xffc93c,{metalness:.4,roughness:.3}),0,.25,0));
+const btn=mesh(new THREE.CylinderGeometry(1.1,1.2,.6,24),M(0xe5253a,{emissive:0x7a0010}),0,.8,0);pad.add(btn);
+const beam=mesh(new THREE.CylinderGeometry(2.5,2.5,26,24,1,true),new THREE.MeshBasicMaterial({color:0xffe27a,transparent:true,opacity:.18,side:2}),0,13,0,false);pad.add(beam);sc.add(pad);
+// label sprite
+function label(t,col='#fff',sz=64,w=512){const c=document.createElement('canvas');c.width=w;c.height=128;const x=c.getContext('2d');x.font=`700 ${sz}px Kanit,sans-serif`;x.textAlign='center';x.lineWidth=10;x.strokeStyle='#000b';x.strokeText(t,w/2,88);x.fillStyle=col;x.fillText(t,w/2,88);
+ const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthTest:false}));s.scale.set(w/64,2,1);s.renderOrder=9;return s}
+function hero(col){const g=new THREE.Group();g.add(mesh(new THREE.CylinderGeometry(.5,.55,1.5,12),M(col),0,1,0));
+ g.add(mesh(new THREE.SphereGeometry(.5,14,12),M(0xffd9b3),0,2,0));g.add(mesh(new THREE.SphereGeometry(.52,14,8,0,6.3,0,1.3),M(col===0xffffff?0:0x333355),0,2.05,0));
+ [-.18,.18].forEach(x=>g.add(mesh(new THREE.SphereGeometry(.07,8,8),M(0x111111),x,2.05,.44,false)));
+ const sw=new THREE.Group();sw.add(mesh(new THREE.BoxGeometry(.12,1.3,.12),M(0xdfe6ee,{metalness:.8,roughness:.2}),0,.8,0));sw.add(mesh(new THREE.BoxGeometry(.5,.1,.12),M(0xb8860b),0,.15,0));sw.position.set(.75,1,.3);sw.rotation.x=1.2;g.add(sw);g.sw=sw;return g}
+const COLS=[0xff6b6b,0x4dabf7,0x69db7c,0xffa94d,0xda77f2,0x38d9a9,0xffd43b];
+// ---- state
+const me={x:R(-4,4),z:34,r:Math.PI,n:'',c:0,lvl:0,h:[],atB:false,v:null,hp:0};
+let room=null,others=new Map(),avs=new Map(),mons=[],parts=[],keys={},joy={x:0,y:0},cd=0,swing=0,started=false,cool=0,lvl=0,lastSend=0,resolving=false;
+const mon=(word)=>{const g=new THREE.Group(),col=[0x9b5de5,0x00bbf9,0xf15bb5,0xfee440,0x00f5d4][Math.random()*5|0];
+ const b=mesh(new THREE.SphereGeometry(1,20,14),M(col,{roughness:.3,transparent:true,opacity:.92}),0,.9,0);b.scale.set(1,.85,1);g.add(b);
+ [-.35,.35].forEach(x=>{g.add(mesh(new THREE.SphereGeometry(.2,10,10),M(0xffffff),x,1.1,.8,false));g.add(mesh(new THREE.SphereGeometry(.1,8,8),M(0),x,1.1,.97,false))});
+ const tx=label('?','#fff',60,128);tx.position.y=2.8;tx.scale.set(2,2,1);g.add(tx);g.b=b;return g};
+function spawnMon(m){m.g.position.set(R(-38,38),0,R(-38,38));while(Math.hypot(m.g.position.x,m.g.position.z)<8||Math.hypot(m.g.position.x,m.g.position.z)>40)m.g.position.set(R(-38,38),0,R(-38,38));m.hp=3;m.dead=false;m.g.visible=true;m.g.scale.setScalar(1);m.tg=null}
+function setupLevel(){mons.forEach(m=>sc.remove(m.g));mons=[];const p=P[lvl%P.length];const ws=shuf([...p.t,...p.d]);
+ ws.forEach(w=>{const m={g:mon(w),word:w,t:Math.random()*9};sc.add(m.g);spawnMon(m);mons.push(m)});me.h=[];me.v=null;me.atB=false;renderWords();$('lv').textContent=lvl+1}
+const renderWords=()=>$('words').innerHTML=me.h.map(w=>`<span class="w">${w}</span>`).join('')||'<small>ยังไม่มีคำใบ้ ไปสู้มอนสเตอร์!</small>';
+function say(t,ms=1800){const m=$('msg');m.textContent=t;m.style.opacity=1;clearTimeout(say.t);say.t=setTimeout(()=>m.style.opacity=0,ms)}
+function burst(p,col){for(let i=0;i<14;i++){const s=mesh(new THREE.SphereGeometry(.14,6,6),new THREE.MeshBasicMaterial({color:col}),p.x,1.2,p.z,false);sc.add(s);parts.push({s,v:new THREE.Vector3(R(-4,4),R(3,8),R(-4,4)),l:1})}}
+function attack(){if(!started||cd>0||resolving)return;cd=.35;swing=.3;
+ mons.forEach(m=>{if(m.dead)return;const d=Math.hypot(m.g.position.x-me.x,m.g.position.z-me.z);if(d<3.2){m.hp--;m.g.position.x+=Math.sin(me.r)*1.2;m.g.position.z+=Math.cos(me.r)*1.2;m.g.scale.setScalar(.6+.13*m.hp);burst(m.g.position,0xffffff);
+  if(m.hp<=0){m.dead=true;m.g.visible=false;m.rs=6;burst(m.g.position,0xffd54a);const s=label('✨ '+m.word,'#ffe066',60,640);s.position.copy(m.g.position).setY(3);sc.add(s);parts.push({s,v:new THREE.Vector3(0,1.2,0),l:3,sp:1});
+   if(!me.h.includes(m.word)){me.h.push(m.word);renderWords()}say('✨ '+m.word)}}})}
+// ---- input
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=1;if(e.code==='Space'){attack();e.preventDefault()}});addEventListener('keyup',e=>keys[e.key.toLowerCase()]=0);
+$('atk').addEventListener('pointerdown',e=>{e.preventDefault();attack()});
+const J=$('joy');let jid=null;const jm=e=>{const r=J.getBoundingClientRect();let x=(e.clientX-r.left-65)/50,y=(e.clientY-r.top-65)/50,l=Math.hypot(x,y);if(l>1){x/=l;y/=l}joy.x=x;joy.y=y;$('knob').style.transform=`translate(${x*40}px,${y*40}px)`};
+J.addEventListener('pointerdown',e=>{jid=e.pointerId;J.setPointerCapture(jid);jm(e)});J.addEventListener('pointermove',e=>{if(e.pointerId===jid)jm(e)});
+const je=e=>{jid=null;joy.x=joy.y=0;$('knob').style.transform=''};J.addEventListener('pointerup',je);J.addEventListener('pointercancel',je);
+// ---- room
+async function initRoom(){try{room=await window.claude.use('room')}catch(e){}if(!room)return;
+ const up=ch=>{others=new Map((ch.peers||room.peers()).filter(p=>!p.isMe).map(p=>[p.peer,p.presence]))};up({peers:room.peers()});room.onPeers(up)}
+function send(t){if(!room||t-lastSend<110)return;lastSend=t;room.presence({x:+me.x.toFixed(2),z:+me.z.toFixed(2),r:+me.r.toFixed(2),n:me.n,c:me.c,lvl,h:me.h,atB:me.atB,v:me.v}).catch(()=>{})}
+// ---- vote
+function voteLogic(now){const all=[me,...others.values()],p=P[lvl%P.length],V=$('vote');
+ if(!me.atB||now<cool){V.style.display='none';return}V.style.display='block';
+ const ready=all.every(s=>s.atB);const team=[...new Set(all.flatMap(s=>s.h||[]))];
+ $('vh').innerHTML=team.map(w=>`<span class="w">${w}</span>`).join(' ');
+ if(!ready){$('vt').textContent=`⏳ รอเพื่อนมาครบ ${all.filter(s=>s.atB).length}/${all.length} คน`;$('opts').innerHTML='';$('opts').dataset.k='';return}
+ $('vt').textContent='🗳️ ช่วยกันโหวต: มันคืออะไร?';
+ const k=lvl+'o'+me.v;if($('opts').dataset.k!==k){$('opts').dataset.k=k;$('opts').innerHTML=p.o.map((o,i)=>`<button class="opt ${me.v===i?'sel':''}" data-i="${i}">${o}</button>`).join('')}
+ if(all.every(s=>s.v!=null&&s.v>=0)&&!resolving){const tl=p.o.map((_,i)=>all.filter(s=>s.v===i).length),mx=Math.max(...tl),win=tl.indexOf(mx),ok=tl.filter(x=>x===mx).length===1&&p.o[win]===p.a;
+  resolving=true;cool=now+6000;V.style.display='none';say(ok?`🎉 ถูกต้อง! คือ “${p.a}”`:'❌ ยังไม่ใช่... กลับไปหาคำใบ้เพิ่ม!',2600);
+  setTimeout(()=>{resolving=false;me.atB=false;me.v=null;if(ok){lvl++;setupLevel();if(lvl>=P.length){say('🏆 ชนะครบทุกด่าน! เริ่มใหม่',3000);lvl=0;setupLevel()}}
+   me.x=R(-4,4);me.z=34;me.r=Math.PI;$('opts').dataset.k=''},2700)}}
+$('opts').addEventListener('click',e=>{const b=e.target.closest('.opt');if(b&&!resolving){me.v=+b.dataset.i;lastSend=0}});
+// ---- avatars
+function syncAv(dt){others.forEach((s,id)=>{let a=avs.get(id);if(!a){const g=hero(COLS[(s.c||0)%7]);const l=label(s.n||'?','#fff',58,384);l.position.y=3.6;l.scale.set(6,2,1);g.add(l);g.l=s.n;sc.add(g);a={g,t:0};avs.set(id,a);g.position.set(s.x||0,0,s.z||0)}
+ if(a.g.l!==s.n){a.g.l=s.n}a.g.position.x+=((s.x||0)-a.g.position.x)*Math.min(1,dt*10);a.g.position.z+=((s.z||0)-a.g.position.z)*Math.min(1,dt*10);a.g.rotation.y=s.r||0;a.g.position.y=Math.abs(Math.sin(performance.now()/120+(s.x||0)))*.08});
+ avs.forEach((a,id)=>{if(!others.has(id)){sc.remove(a.g);avs.delete(id)}});
+ if(lvl<Math.max(0,...[...others.values()].map(s=>s.lvl||0))&&started&&!resolving){lvl=Math.max(...[...others.values()].map(s=>s.lvl||0));setupLevel()}}
+// ---- main
+const hr=hero(0xff6b6b);sc.add(hr);const lastClock=new THREE.Clock();let myLab=null;
+function tick(){requestAnimationFrame(tick);const dt=Math.min(lastClock.getDelta(),.05),now=performance.now();
+ if(started){let ix=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0)+joy.x,iz=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0)+joy.y;const l=Math.hypot(ix,iz);
+  if(l>.1&&!resolving){const sp=9*Math.min(1,l);ix/=l;iz/=l;me.x+=ix*sp*dt;me.z+=iz*sp*dt;me.r=Math.atan2(ix,iz);const d=Math.hypot(me.x,me.z);if(d>43){me.x*=43/d;me.z*=43/d}}
+  me.atB=resolving?me.atB:Math.hypot(me.x,me.z)<3.4;if(!me.atB)me.v=null;
+  hr.position.set(me.x,Math.abs(l>.1?Math.sin(now/110)*.12:0),me.z);hr.rotation.y=me.r;cd-=dt;swing-=dt;hr.sw.rotation.x=swing>0?1.2-Math.sin((1-swing/.3)*Math.PI)*2.4:1.2;
+  mons.forEach(m=>{m.t+=dt;if(m.dead){m.rs-=dt;if(m.rs<=0)spawnMon(m);return}const p=m.g.position,dx=me.x-p.x,dz=me.z-p.z,d=Math.hypot(dx,dz);
+   m.g.b.scale.set(1+Math.sin(m.t*6)*.06,.85+Math.cos(m.t*6)*.08,1+Math.sin(m.t*6)*.06);p.y=Math.abs(Math.sin(m.t*3))*.4;
+   if(d<9&&d>2){p.x+=dx/d*2.2*dt;p.z+=dz/d*2.2*dt;m.g.rotation.y=Math.atan2(dx,dz)}else if(d>=9){if(!m.tg||Math.hypot(m.tg.x-p.x,m.tg.z-p.z)<1)m.tg={x:R(-38,38),z:R(-38,38)};const tx=m.tg.x-p.x,tz=m.tg.z-p.z,td=Math.hypot(tx,tz)||1;if(Math.hypot(p.x+tx/td*dt,p.z+tz/td*dt)<41){p.x+=tx/td*1.4*dt;p.z+=tz/td*1.4*dt}else m.tg=null;m.g.rotation.y=Math.atan2(tx,tz)}});
+  voteLogic(now);send(now);syncAv(dt);$('pc').textContent=1+others.size;
+  const tx=me.x,tz=me.z+13;cam.position.x+=(tx-cam.position.x)*Math.min(1,dt*5);cam.position.z+=(tz-cam.position.z)*Math.min(1,dt*5);cam.position.y=11;cam.lookAt(me.x,1.5,me.z);
+  sun.position.set(me.x+20,35,me.z+15);sun.target.position.set(me.x,0,me.z)}else{cam.position.set(Math.sin(now/6000)*40,18,Math.cos(now/6000)*40);cam.lookAt(0,2,0)}
+ btn.position.y=.8-(me.atB?.25:0)+Math.sin(now/300)*.05;beam.material.opacity=.14+Math.sin(now/400)*.05;clouds.forEach((c,i)=>{c.position.x+=dt*(1+i%3);if(c.position.x>90)c.position.x=-90});
+ parts=parts.filter(p=>{p.l-=dt;if(p.l<=0){sc.remove(p.s);return false}p.s.position.addScaledVector(p.v,dt);if(!p.sp)p.v.y-=14*dt;return true});
+ rn.render(sc,cam)}
+$('opts').addEventListener('pointerdown',e=>e.stopPropagation());
+$('go').onclick=async()=>{me.n=$('nm').value.trim()||'นักรบ'+(Math.random()*90+10|0);me.c=Math.abs(hs(me.n))%7;
+ hr.children[0].material.color.setHex(COLS[me.c]);const l=label(me.n,'#fff',58,384);l.position.y=3.6;l.scale.set(6,2,1);hr.add(l);
+ $('start').style.display='none';started=true;await initRoom();setupLevel();say('เดินหามอนสเตอร์ แล้วโจมตีเลย!',2600)};
+setupLevel();tick();
+</script></body></html>
