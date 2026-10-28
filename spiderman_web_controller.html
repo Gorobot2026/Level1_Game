@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>SPIDER-BOT AGV Controller</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #030508;
+            color: #ffffff;
+            font-family: Arial, Helvetica, sans-serif;
+            text-align: center;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            height: 100vh;
+            width: 100vw;
+            padding: 4px 6px;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(255, 0, 60, 0.12) 0%, transparent 80%),
+                linear-gradient(to right, rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+            background-size: 100% 100%, 15px 15px, 15px 15px;
+        }
+
+        .header-container {
+            width: 100%;
+            padding: 2px 0;
+        }
+
+        .header-title {
+            color: #ff003c;
+            font-size: 16px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-shadow: 0 0 8px rgba(255, 0, 60, 0.8);
+        }
+
+        .sub-title {
+            color: #00f0ff;
+            font-size: 10px;
+            letter-spacing: 1px;
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(0, 240, 255, 0.6);
+        }
+
+        .hud-box {
+            background: rgba(12, 18, 32, 0.9);
+            border: 1px solid #00f0ff;
+            border-radius: 6px;
+            padding: 2px 8px;
+            box-shadow: 0 0 8px rgba(0, 240, 255, 0.2);
+            color: #00f0ff;
+            font-size: 11px;
+            font-weight: bold;
+            width: 90%;
+            max-width: 340px;
+            margin: 2px auto;
+        }
+
+        .hud-value {
+            color: #ff003c;
+            font-size: 14px;
+            text-shadow: 0 0 6px rgba(255, 0, 60, 0.9);
+        }
+
+        /* Original table layout styling customized for Spider-Man theme */
+        #mainTable {
+            width: 92%;
+            max-width: 360px;
+            height: 66vh;
+            max-height: 380px;
+            margin: auto;
+            table-layout: fixed;
+            border-collapse: separate;
+            border-spacing: 6px;
+        }
+
+        td {
+            background: linear-gradient(135deg, #121824 0%, #070a10 100%);
+            border: 2px solid #00f0ff;
+            border-radius: 20%;
+            box-shadow: 0 0 8px rgba(0, 240, 255, 0.3);
+            vertical-align: middle;
+            cursor: pointer;
+            transition: all 0.05s ease;
+        }
+
+        td:active {
+            transform: scale(0.93);
+            background: linear-gradient(135deg, #30000c 0%, #ff003c 100%);
+            border-color: #ff003c;
+            box-shadow: 0 0 14px rgba(255, 0, 60, 0.9);
+        }
+
+        .arrows {
+            font-size: 38px;
+            color: AliceBlue;
+            line-height: 1;
+            display: inline-block;
+            text-shadow: 0 0 6px rgba(0, 240, 255, 0.8);
+        }
+
+        .arrows-red {
+            color: #ff003c;
+            text-shadow: 0 0 6px rgba(255, 0, 60, 0.8);
+        }
+
+        .circularArrows {
+            font-size: 32px;
+            color: Cornsilk;
+            line-height: 1;
+            display: inline-block;
+            text-shadow: 0 0 6px rgba(255, 215, 0, 0.8);
+        }
+
+        /* Center spider display (non-clickable) */
+        td.spider-cell {
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            pointer-events: none;
+        }
+
+        .spider-icon {
+            font-size: 36px;
+            color: #ff003c;
+            animation: pulse 1.5s infinite;
+            filter: drop-shadow(0 0 8px rgba(255, 0, 60, 0.9));
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.4; transform: scale(0.95); }
+            50% { opacity: 1; transform: scale(1.1); }
+            100% { opacity: 0.4; transform: scale(0.95); }
+        }
+
+        td.id-cell {
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        .footer-text {
+            color: #555;
+            font-size: 9px;
+            margin-bottom: 2px;
+            letter-spacing: 0.5px;
+        }
+
+        .noselect {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            touch-action: manipulation;
+        }
+    </style>
+</head>
+
+<body class="noselect">
+
+    <!-- HEADER -->
+    <div class="header-container">
+        <h1 class="header-title">🛒 SPIDER-BOT AGV</h1>
+        <h2 class="sub-title">Wi-Fi 🛰️ Web Controller</h2>
+    </div>
+
+    <!-- DISTANCE DISPLAY -->
+    <div class="hud-box">
+        DISTANCE: <span id="displayText" class="hud-value">---</span> cm
+    </div>
+
+    <!-- ORIGINAL 4x3 TABLE STRUCTURE -->
+    <table id="mainTable">
+        <tr>
+            <td ontouchstart='onTouchStartAndEnd("5")' ontouchend='onTouchStartAndEnd("0")' onmousedown='onTouchStartAndEnd("5")' onmouseup='onTouchStartAndEnd("0")'>
+                <span class="arrows" style="transform: rotate(-45deg);">&#8679;</span>
+            </td>
+            <td ontouchstart='onTouchStartAndEnd("1")' ontouchend='onTouchStartAndEnd("0")' onmousedown='onTouchStartAndEnd("1")' onmouseup='onTouchStartAndEnd("0")'>
+                <span class="arrows arrows-red">&#8679;</span>
+            </td>
+            <td ontouchstart='onTouchStartAndEnd("6")' ontouchend='onTouchStartAndEnd("0")' onmousedown='onTouchStartAndEnd("6")' onmouseup='onTouchStartAndEnd("0")'>
+                <span class="arrows" style="transform: rotate(45deg);">&#8679;</span>
+            </td>
+        </tr>
+        <tr>
+            <td ontouchstart='onTouchStartAndEnd("3")' ontouchend='onTouchStartAndEnd("0")' onmousedown='onTouchStartAndEnd("3")' onmouseup='onTouchStartAndEnd("0")'>
+                <span class="arrows">&#8678;</span>
+            </td>
+            <td class="spider-cell">
+                <div class="spider-icon">🕷️</div>
+            </td>
+            <td ontouchstart='onTouchStartAndEnd("4")' ontouchend='onTouchStartAndEnd("0")' onmousedown='onTouchStartAndEnd("4")' onmouseup='onTouchStartAndEnd("0")'>
+                <span class="arrows">&#8680;</span>
+            </td>
+        </tr>
+        <tr>
+            <td ontouchstart='onTouchStartAndEnd("7")' ontouchend='onTouchStartAndEnd("0")' onmousedown='onTouchStartAndEnd("7")' onmouseup='onTouchStartAndEnd("0")'>
+                <!-- SW (7): Diagonal Bottom-Left ↙️ -->
+                <span class="arrows" style="transform: rotate(-135deg);">&#8679;</span>
+            </td>
+            <td ontouchstart='onTouchStartAndEnd("2")' ontouchend='onTouchStartAndEnd("0")' onmousedown='onTouchStartAndEnd("2")' onmouseup='onTouchStartAndEnd("0")'>
+                <span class="arrows arrows-red">&#8681;</span>
+            </td>
+            <td ontouchstart='onTouchStartAndEnd("8")' ontouchend='onTouchStartAndEnd("0")' onmousedown='onTouchStartAndEnd("8")' onmouseup='onTouchStartAndEnd("0")'>
+                <!-- SE (8): Diagonal Bottom-Right ↘️ -->
+                <span class="arrows" style="transform: rotate(135deg);">&#8679;</span>
+            </td>
+        </tr>
+        <tr>
+            <td ontouchstart='onTouchStartAndEnd("9")' ontouchend='onTouchStartAndEnd("0")' onmousedown='onTouchStartAndEnd("9")' onmouseup='onTouchStartAndEnd("0")'>
+                <span class="circularArrows">&#8634;</span>
+            </td>
+            <td class="id-cell">
+                <h2 style="color: #ff003c; text-align:center; font-size: 11px; font-weight: bold; letter-spacing: 0.5px;">Via IDektep</h2>
+            </td>
+            <td ontouchstart='onTouchStartAndEnd("10")' ontouchend='onTouchStartAndEnd("0")' onmousedown='onTouchStartAndEnd("10")' onmouseup='onTouchStartAndEnd("0")'>
+                <span class="circularArrows">&#8635;</span>
+            </td>
+        </tr>
+    </table>
+
+    <!-- FOOTER -->
+    <div class="footer-text">
+        SPIDER-BOT CONTROL SYSTEM
+    </div>
+
+    <!-- SCRIPT -->
+    <script>
+        var webSocketUrl = "ws://" + window.location.hostname + "/ws";
+        var websocket;
+
+        function initWebSocket() {
+            try {
+                websocket = new WebSocket(webSocketUrl);
+                websocket.onopen = function (event) { };
+                websocket.onclose = function (event) { setTimeout(initWebSocket, 2000); };
+                websocket.onmessage = function (event) { };
+            } catch(e) { console.warn("WebSocket offline"); }
+        }
+
+        function onTouchStartAndEnd(value) {
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                websocket.send(value);
+            } else {
+                console.log("Cmd Sent:", value);
+            }
+        }
+
+        window.onload = function() {
+            initWebSocket();
+            getReadings();
+        };
+
+        document.getElementById("mainTable").addEventListener("touchend", function (event) {
+            event.preventDefault();
+        }, { passive: false });
+
+        function getReadings() {
+            var xhr = new XMLHttpRequest();
+            var textElement = document.getElementById('displayText');
+
+            xhr.onreadystatechange = function () {
+                if (this.readyState == 4 && this.status == 200) {
+                    try {
+                        const myObj = JSON.parse(this.responseText);
+                        textElement.textContent = myObj.distance;
+                    } catch(e) {}
+                }
+            };
+
+            var requestUrl = (window.location.origin && window.location.origin !== "null" && !window.location.origin.startsWith("blob:")) 
+                ? window.location.origin + "/readings" 
+                : "/readings";
+
+            try {
+                xhr.open("GET", requestUrl, true);
+                xhr.send();
+            } catch (err) {
+                textElement.textContent = "--";
+            }
+        }
+
+        setInterval(getReadings, 500);
+    </script>
+</body>
+</html>
